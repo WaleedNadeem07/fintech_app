@@ -23,3 +23,10 @@ export async function getUserById(id: string) {
     include: { accounts: { select: { id: true, balance: true, currency: true } } },
   });
 }
+
+export async function getAllUsers() {
+  return prisma.user.findMany({
+    include: { accounts: { select: { id: true, balance: true, currency: true } } },
+    orderBy: { createdAt: 'desc' },
+  });
+}

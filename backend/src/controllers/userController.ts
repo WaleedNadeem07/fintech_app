@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { createUser, getUserById } from '../services/userService';
+import { createUser, getAllUsers, getUserById } from '../services/userService';
 import { AppError } from '../middlewares/errorHandler';
 
 export async function handleCreateUser(req: Request, res: Response) {
@@ -21,4 +21,9 @@ export async function handleGetUser(req: Request, res: Response) {
   const user = await getUserById(String(req.params['id']));
   if (!user) throw new AppError(404, 'User not found');
   res.json(user);
+}
+
+export async function handleGetAllUsers(_req: Request, res: Response) {
+  const users = await getAllUsers();
+  res.json(users);
 }
