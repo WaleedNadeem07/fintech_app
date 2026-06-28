@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  name      String
+  accounts  Account[]
+  feedback  CategoryFeedback[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Financial correctness: Decimal for absolute precision (no floating point errors)
+  balance   Decimal  @default(0) @db.Decimal(15, 2) 
+  currency  String   @default("USD")
+  
+  // Optimistic locking: increment this on every balance change.
+  // Combined with Pessimistic FOR UPDATE, this makes concurrency bulletproof.
+  version   Int      @default(0) 
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  fromTransactions Transaction[] @relation("FromAccount")
+  toTransactions   Transaction[] @relation("ToAccount")
+}
+
+model Transaction {
+  id             String   @id @default(uuid())
+  fromAccountId  String
+  toAccountId    String
+  amount         Decimal  @db.Decimal(15, 2)
+  
+  // This description is CRUCIAL: it's what the LLM uses to categorize.
+  description    String?  
+  
+  // IDEMPOTENCY: This unique constraint is the silver bullet against duplicate requests.
+  idempotencyKey String   @unique
+  status         Status   @default(COMPLETED)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  fromAccount Account @relation("FromAccount", fields: [fromAccountId], references: [id])
+  toAccount   Account @relation("ToAccount", fields: [toAccountId], references: [id])
+  
+  category      TransactionCategory?
+}
+
+model TransactionCategory {
+  id               String   @id @default(uuid())
+  transactionId    String   @unique
+  transaction      Transaction @relation(fields: [transactionId], references: [id])
+  
+  category         String   // e.g., "Food & Dining", "Transport"
+  isUserCorrected  Boolean  @default(false) // Did the user override the AI?
+  correctedCategory String? // If they corrected it, store the new one here.
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// This table fuels the "Learning" feature.
+// When a user corrects a category, we save the original description + correction here.
+// The LLM prompt will query the last 5-10 entries matching keywords in the new description.
+model CategoryFeedback {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+  description       String   // The transaction memo
+  originalCategory  String   // What AI guessed
+  correctedCategory String   // What user changed it to
+  createdAt         DateTime @default(now())
+}
+
+enum Status {
+  COMPLETED
+  FAILED
+}
