@@ -136,17 +136,18 @@ class LLMService {
     const sixtyDaysAgo = new Date(now);
     sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
-    // Spend per category for the last 30 days
+    // Spend per category for the last 30 days.
+    // COALESCE gives user corrections priority over the original AI category.
     const spending = await prisma.$queryRaw<Array<{ category: string; total: number }>>`
       SELECT
-        tc.category,
+        COALESCE(tc."correctedCategory", tc.category) AS category,
         SUM(t.amount)::float8 AS total
       FROM "Transaction" t
       JOIN "TransactionCategory" tc ON t.id = tc."transactionId"
       JOIN "Account" a ON t."fromAccountId" = a.id
       WHERE a."userId" = ${userId}
         AND t."createdAt" >= ${thirtyDaysAgo}
-      GROUP BY tc.category
+      GROUP BY COALESCE(tc."correctedCategory", tc.category)
       ORDER BY total DESC
     `;
 

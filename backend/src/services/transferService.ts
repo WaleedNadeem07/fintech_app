@@ -29,6 +29,10 @@ export async function executeTransfer(input: TransferInput) {
     throw new AppError(400, 'Amount must be greater than zero');
   }
 
+  // Snap to 2 decimal places before creating the Decimal — prevents floating
+  // point values like 1.0999999... from reaching the database as 1.09
+  const roundedAmount = Math.round(amount * 100) / 100;
+
   // Fast path: idempotency key already exists — return the existing transfer immediately
   const existing = await prisma.transaction.findUnique({
     where: { idempotencyKey },
@@ -55,7 +59,7 @@ export async function executeTransfer(input: TransferInput) {
 
         const fromAccount = locked.find((a) => a.id === fromAccountId)!;
         const toAccount = locked.find((a) => a.id === toAccountId)!;
-        const transferAmount = new Prisma.Decimal(amount);
+        const transferAmount = new Prisma.Decimal(roundedAmount);
 
         if (fromAccount.balance.lessThan(transferAmount)) {
           throw new AppError(422, 'Insufficient funds');
