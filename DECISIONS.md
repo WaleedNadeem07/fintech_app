@@ -74,3 +74,5 @@ Reply with ONLY the category name, nothing else.
 - **Pagination cursor**: Using offset/limit. Cursor-based pagination is better at scale but unnecessary here.
 - **Multi-currency conversion**: All accounts default to USD. Currency field exists for future use.
 - **Async categorization queue**: LLM categorization is called synchronously after a transfer. A job queue (BullMQ, etc.) would be more robust in production but adds complexity beyond the scope.
+
+Concurrent transfers are protected using database transactions and row-level locking. A stress test (scripts/test-concurrency.mjs) was written to verify that concurrent requests cannot overdraw an account and that balances remain correct under contention.
