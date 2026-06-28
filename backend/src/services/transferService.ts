@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { AppError } from '../middlewares/errorHandler';
+import { llmService } from './llmService';
 
 type LockedAccount = {
   id: string;
@@ -97,6 +98,13 @@ export async function executeTransfer(input: TransferInput) {
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
     );
+
+    // Auto-categorize asynchronously — don't block the transfer response
+    setImmediate(() => {
+      void llmService.categorizeTransaction(transaction.id).catch((err: unknown) =>
+        console.error('Auto-categorization failed:', err),
+      );
+    });
 
     return { transaction, duplicate: false };
   } catch (error) {

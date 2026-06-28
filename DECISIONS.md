@@ -44,7 +44,30 @@ If the balance check fails, the transaction rolls back and no money moves. If an
 `Status` enum has `COMPLETED` and `FAILED`. Currently all persisted transfers are `COMPLETED` (a failed transfer means the DB transaction rolled back and nothing is written). `FAILED` is reserved for future use (e.g., async settlement flows).
 
 ## LLM Feedback Loop (Learning)
-_To be filled in during later implementation._
+
+**Provider**: Groq (`qwen/qwen3.6-27b`) via `groq-sdk`. Originally planned with Google Gemini (quota issues on free tier) and then `llama3-70b-8192` (decommissioned August 2025). Settled on `qwen/qwen3.6-27b` which is Groq's current recommended replacement and available on the free tier. Chosen for its free tier and low latency on short classification prompts.
+
+**Categorization trigger**: Fired automatically via `setImmediate` after every successful transfer, so it never blocks or adds latency to the transfer response. Also available on-demand via `POST /api/transactions/:id/categorize`.
+
+**Few-shot learning approach**: When categorizing a transaction, we query the `CategoryFeedback` table for up to 5 past corrections from the same user whose description contains overlapping words (case-insensitive keyword match). These are injected into the prompt as labelled examples before the classification request.
+
+Example prompt structure:
+```
+This user has previously corrected these categories — follow their preferences:
+  - "Uber ride to airport" → "Transport"
+  - "McDonald's order" → "Food & Dining"
+
+Transaction description: "Grab ride downtown"
+Reply with ONLY the category name, nothing else.
+```
+
+**Why few-shot over fine-tuning**: Fine-tuning requires a training pipeline, labeled datasets, and re-deployment. Few-shot prompting is immediate — every correction improves the next request with zero infrastructure. For the volume of transactions in a personal wallet, this is more than sufficient and demonstrably correct.
+
+**User corrections**: `PUT /api/transactions/:id/category` sets `isUserCorrected = true` on the `TransactionCategory` record. A corrected record is never overwritten by the auto-categorizer. The correction is also persisted to `CategoryFeedback` to influence future prompts.
+
+**Fallback**: If the Gemini API is unavailable or returns an unrecognised category, the system defaults to `"Other"` and logs the error. The transfer is never blocked by a categorization failure.
+
+**Spending Insights**: `GET /api/users/:id/insights` returns SQL-aggregated data (no LLM involvement): current month spend by category, month-over-month trend, and unusual spending (categories where this month exceeds 2× the 6-month average).
 
 ## Intentional Scope Omissions
 - **Authentication/Authorization**: No JWT or session layer. The assessment focuses on financial correctness and AI integration; adding auth would add 1–2 hours of boilerplate with no signal value.

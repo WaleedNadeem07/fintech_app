@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { usersRouter } from './users';
 import { accountsRouter } from './accounts';
 import { transfersRouter } from './transfers';
+import { transactionsRouter } from './transactions';
 
 export const router = Router();
 
@@ -12,3 +13,4 @@ router.get('/health', (_req, res) => {
 router.use('/users', usersRouter);
 router.use('/accounts', accountsRouter);
 router.use('/transfers', transfersRouter);
+router.use('/transactions', transactionsRouter);
