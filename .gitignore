@@ -1,0 +1,8 @@
+# Ignore everything
+*
+
+# Don't ignore the .gitignore file itself
+!.gitignore
+
+# Track only the root DECISIONS.md
+!/DECISIONS.md
