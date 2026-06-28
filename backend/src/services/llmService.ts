@@ -71,7 +71,7 @@ class LLMService {
     const feedbacks = await prisma.categoryFeedback.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
-      take: 5,
+      take: 10,
     });
 
     // Build the prompt — inject user corrections so the model learns their preferences
